@@ -275,7 +275,7 @@ def main():
 
         col1, col2 = st.columns(2)
         with col1:
-            st.subheader("🪪 ID Card Upload")
+            st.subheader("ID Card Upload")
             id_card_file = st.file_uploader(
                 "Upload your NIC / Passport / ID Card",
                 type=["jpg", "jpeg", "png", "tiff", "bmp", "webp", "pdf"],
@@ -287,7 +287,7 @@ def main():
                     st.image(id_card_file, caption="ID Card Preview", use_container_width=True)
 
         with col2:
-            st.subheader("💧 Utility Bill Upload")
+            st.subheader("Utility Bill Upload")
             utility_bill_file = st.file_uploader(
                 "Upload your Water / Electricity Bill",
                 type=["jpg", "jpeg", "png", "tiff", "bmp", "webp", "pdf"],
@@ -306,7 +306,7 @@ def main():
         col_btn1, col_btn2 = st.columns(2)
         
         with col_btn1:
-            verify_clicked = st.button("🔍 Step 1: Verify Documents", use_container_width=True)
+            verify_clicked = st.button("Step 1: Verify Documents", use_container_width=True)
             
         if verify_clicked:
             if not declaration_agreed:
@@ -354,9 +354,9 @@ def main():
             st.divider()
             
             if score >= 80:
-                st.success(f"✅ Document Verification Score: **{score}/100** — {overall}")
+                st.success(f"Document Verification Score: **{score}/100** — {overall}")
             else:
-                st.error(f"❌ Document Verification Score: **{score}/100** — {overall}")
+                st.error(f"Document Verification Score: **{score}/100** — {overall}")
             st.progress(min(score, 100) / 100)
             st.info(vr.get("summary", ""))
             
@@ -385,7 +385,7 @@ def main():
 
             with col_btn2:
                 if score >= 80:
-                    submit_clicked = st.button("💾 Step 2: Submit Proposal to S3", type="primary", use_container_width=True)
+                    submit_clicked = st.button("Submit", type="primary", use_container_width=True)
                     if submit_clicked:
                         data["declaration_agreed"] = True
                         data["document_verification_result"] = vr
@@ -401,7 +401,7 @@ def main():
                                     s3_response = requests.post(api_url, json=data)
                                     
                                     if s3_response.status_code == 200:
-                                        st.success(f"🎉 Proposal {proposal_id} successfully saved to AWS S3!")
+                                        st.success(f"Proposal {proposal_id} successfully saved to AWS S3!")
                                         with st.expander("View Full Submitted Data"):
                                             st.json(data)
                                     else:
@@ -411,10 +411,10 @@ def main():
                                     st.error(f"Failed to save to S3: {e}")
                 else:
                     if failed_fields:
-                        st.error(f"❌ Cannot submit. Score is {score}% (minimum 80% required). The following fields did NOT match: **{', '.join(failed_fields)}**.")
+                        st.error(f"Cannot submit. Score is {score}% (minimum 80% required). The following fields did NOT match: **{', '.join(failed_fields)}**.")
                     else:
-                        st.error(f"❌ Cannot submit. Score is {score}% (minimum 80% required).")
-                    st.button("💾 Step 2: Submit Proposal to S3", disabled=True, use_container_width=True)
+                        st.error(f"Cannot submit. Score is {score}% (minimum 80% required).")
+                    st.button("Submit", disabled=True, use_container_width=True)
 
 if __name__ == "__main__":
     main()
