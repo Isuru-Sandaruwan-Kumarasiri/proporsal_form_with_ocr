@@ -240,21 +240,18 @@ def build_document_recommendation_prompt(
 ) -> str:
     """
     Final LLM prompt to recommend documents and reports based on
-    violated rules + similar past evidence.
+    violated rules + similar past evidence, and assess hidden risks for STP cases.
     """
     return f"""
-You are an insurance underwriting document recommendation agent.
+You are an insurance underwriting document recommendation and risk analysis agent.
 
 The STP/NSTP decision is already made from the embedded company-rule check.
 Your task now:
-1. Use the violated rules, SQL historical cases, vector evidence, and underwriter remarks.
-2. Decide what documents or medical reports should be requested.
-3. Use similar past cases only as supporting evidence.
-4. Do NOT create new STP/NSTP rules.
-5. Do NOT change STP to NSTP or NSTP to STP.
-6. If decision is STP, return empty required_documents and required_medical_reports unless a clear non-rule operational requirement is explicitly shown.
-7. If decision is NSTP, recommend practical documents/reports that should go to the customer or next Loading Proposal Agent.
-8. If past evidence mentions a medical condition such as diabetes, hypertension, asthma, smoking, alcohol, hazardous occupation, etc., recommend suitable evidence only when it matches the new proposal.
+1. Use the violated rules, SQL historical cases, vector evidence, and underwriter remarks to decide what documents or medical reports should be requested.
+2. Use similar past cases only as supporting evidence. Do NOT create new STP/NSTP rules. Do NOT change STP to NSTP or NSTP to STP.
+3. If decision is NSTP, recommend practical documents/reports that should go to the customer or next Loading Proposal Agent.
+4. If past evidence mentions a medical condition such as diabetes, hypertension, asthma, smoking, alcohol, hazardous occupation, etc., recommend suitable evidence only when it matches the new proposal.
+5. IF THE DECISION IS STP: Evaluate potential hidden risks by analyzing the SQL and Vector historical context. Even if no explicit rule was violated, similar past cases might show high claims, declinatures, heavy underwriter scrutiny, or loading. Output an "stp_risk_level" (LOW, MEDIUM, or HIGH) and list "stp_risk_factors". If decision is NSTP, set risk level to "NONE" and leave factors empty.
 
 RULE CHECK RESULT:
 {safe_json_dumps(rule_check, max_chars=9000)}
@@ -283,6 +280,10 @@ Use this exact JSON shape:
   ],
   "document_recommendation_reasons": [
     "reason based on rule or similar past case"
+  ],
+  "stp_risk_level": "LOW, MEDIUM, HIGH, or NONE",
+  "stp_risk_factors": [
+    "Risk factor 1 extracted from similar past cases"
   ],
   "possible_loading_types": [
     "HEALTH_LOADING or LIFESTYLE_LOADING or OCCUPATION_LOADING or FINANCIAL_LOADING if relevant"
@@ -342,7 +343,8 @@ def normalize_document_analysis(
         "required_medical_reports",
         "document_recommendation_reasons",
         "possible_loading_types",
-        "evidence_used"
+        "evidence_used",
+        "stp_risk_factors"
     ]:
         if not isinstance(final_doc_analysis.get(key), list):
             final_doc_analysis[key] = []
@@ -355,6 +357,15 @@ def normalize_document_analysis(
                 "No company rule was violated, so no additional document or medical report is required at this stage."
             ]
         final_doc_analysis["possible_loading_types"] = []
+        
+        # Ensure STP has a risk level
+        risk = clean_text(final_doc_analysis.get("stp_risk_level")).upper()
+        if risk not in ["LOW", "MEDIUM", "HIGH"]:
+            final_doc_analysis["stp_risk_level"] = "LOW"
+    else:
+        # If NSTP, risk assessment is not applicable
+        final_doc_analysis["stp_risk_level"] = "NONE"
+        final_doc_analysis["stp_risk_factors"] = []
 
     if not clean_text(final_doc_analysis.get("next_agent_instruction")):
         final_doc_analysis["next_agent_instruction"] = (
@@ -460,8 +471,7 @@ def run_stp_nstp_agent(
             process_status["raw_response_preview"] = rule_check.get("raw_response_preview", "")
             process_status["warnings"].append("Rule check LLM returned invalid JSON (likely cut off due to max_tokens limit).")
 
-        # -- NEW: Extract categorized violated rules into a flat list --
-        # This keeps app.py, output_builder.py, and schemas.py perfectly compatible
+        # Extract categorized violated rules into a flat list
         flat_violated_rules = []
         if isinstance(rule_check.get("financial_evaluation"), dict):
             flat_violated_rules.extend(rule_check["financial_evaluation"].get("violated_rules", []))
@@ -574,6 +584,8 @@ def run_stp_nstp_agent(
             "document_recommendation_reasons": [
                 "Document recommendation LLM failed or returned invalid JSON."
             ],
+            "stp_risk_level": "LOW",
+            "stp_risk_factors": [],
             "possible_loading_types": [],
             "evidence_used": [],
             "next_agent_instruction": "Review proposal manually because document recommendation failed."

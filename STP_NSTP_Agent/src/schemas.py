@@ -186,6 +186,9 @@ class AgentOutput(BaseModel):
     decision: str = "NSTP"
     stp_eligible: bool = False
     confidence: str = "LOW"
+    
+    stp_risk_level: str = "LOW"
+    stp_risk_factors: List[str] = Field(default_factory=list)
 
     violated_rules: List[Dict[str, Any]] = Field(default_factory=list)
     rule_check_summary: Dict[str, Any] = Field(default_factory=dict)
@@ -235,6 +238,8 @@ def build_error_output(
         decision="NSTP",
         stp_eligible=False,
         confidence="LOW",
+        stp_risk_level="NONE",
+        stp_risk_factors=[],
         violated_rules=[],
         rule_check_summary={
             "summary": "Agent failed safely and routed proposal to NSTP.",

@@ -681,6 +681,7 @@ def render_retrieval_summary(output: Dict[str, Any]) -> None:
             else:
                 st.info("No relevant documents found in the vector store.")
 
+
 def render_output(output: Dict[str, Any]) -> None:
     decision = output.get("decision", "NSTP")
     status = output.get("status", "success")
@@ -709,6 +710,26 @@ def render_output(output: Dict[str, Any]) -> None:
 
     if output.get("error"):
         st.error(output["error"])
+
+    # ---------------------------------------------------------
+    # NEW BLOCK: STP Hidden Risk Assessment
+    # ---------------------------------------------------------
+    if decision == "STP":
+        risk_level = output.get("stp_risk_level", "LOW")
+        risk_box = "good-box" if risk_level == "LOW" else ("warn-box" if risk_level == "MEDIUM" else "bad-box")
+        
+        st.markdown("### Historical Risk Assessment (STP Cases)")
+        st.markdown(
+            f"""
+            <div class="{risk_box}">
+                <b>Hidden Risk Level: {escape(risk_level)}</b><br>
+                This assessment compares the current STP proposal against similar past cases.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        render_list(output.get("stp_risk_factors", []), "No historical risk factors found.", success_empty=True)
+    # ---------------------------------------------------------
 
     customer = output.get("customer_summary", {}) or {}
     st.markdown("### Customer / Proposal Snapshot")

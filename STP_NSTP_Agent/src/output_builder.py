@@ -77,14 +77,22 @@ def build_gui_summary(
     violated_rules: List[Dict[str, Any]],
     required_documents: List[str],
     required_medical_reports: List[str],
-    process_status: Dict[str, Any]
+    process_status: Dict[str, Any],
+    stp_risk_level: str = "LOW",
+    stp_risk_factors: List[str] = None
 ) -> Dict[str, Any]:
     if decision == "STP":
+        msg = "Proposal can proceed through Straight-Through Processing."
+        highlight_items = []
+        if stp_risk_level in ["MEDIUM", "HIGH"]:
+            msg += f" (Note: Historical data indicates a {stp_risk_level} hidden risk profile)."
+            highlight_items.extend(stp_risk_factors or [])
+            
         return {
             "status_badge": "STP",
-            "display_message": "Proposal can proceed through Straight-Through Processing.",
-            "next_step": "No additional document request is suggested by the agent.",
-            "highlight_items": []
+            "display_message": msg,
+            "next_step": "Review historical risk factors if highlighted, otherwise no action required.",
+            "highlight_items": highlight_items
         }
 
     highlight_items = []
@@ -132,6 +140,8 @@ def build_loading_agent_input(
         "proposal_json": proposal_json,
         "proposal_summary": get_customer_summary(proposal_json),
         "stp_nstp_decision": decision,
+        "stp_risk_level": final_doc_analysis.get("stp_risk_level", "NONE"),
+        "stp_risk_factors": final_doc_analysis.get("stp_risk_factors", []),
         "violated_rules": rule_check.get("violated_rules", []),
         "required_documents": required_documents,
         "required_medical_reports": required_medical_reports,
@@ -165,6 +175,9 @@ def build_final_output_json(
     required_documents = dedupe_text_list(final_doc_analysis.get("required_documents", []))
     required_medical_reports = dedupe_text_list(final_doc_analysis.get("required_medical_reports", []))
     document_reasons = dedupe_text_list(final_doc_analysis.get("document_recommendation_reasons", []))
+    
+    stp_risk_level = final_doc_analysis.get("stp_risk_level", "LOW" if decision == "STP" else "NONE")
+    stp_risk_factors = dedupe_text_list(final_doc_analysis.get("stp_risk_factors", []))
 
     retrieval_summary = {
         "sql_tool_used": bool(sql_context),
@@ -182,6 +195,9 @@ def build_final_output_json(
         "decision": decision,
         "stp_eligible": decision == "STP",
         "confidence": rule_check.get("confidence", "LOW"),
+        
+        "stp_risk_level": stp_risk_level,
+        "stp_risk_factors": stp_risk_factors,
 
         "violated_rules": violated_rules,
         "rule_check_summary": {
@@ -214,7 +230,9 @@ def build_final_output_json(
             violated_rules=violated_rules,
             required_documents=required_documents,
             required_medical_reports=required_medical_reports,
-            process_status=process_status
+            process_status=process_status,
+            stp_risk_level=stp_risk_level,
+            stp_risk_factors=stp_risk_factors
         ),
 
         "agent_process_status": process_status,
